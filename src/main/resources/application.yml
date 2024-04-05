@@ -1,6 +1,18 @@
 server:
-  port: 8080
+  port: 2777
 
 spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/customer
+    username: ulan
+    password: 123
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: true
   main:
     web-application-type: servlet
