@@ -26,7 +26,8 @@ public class Game {
     private Integer player2_points;
     private Integer player3_points;
     private Integer question_id;
-    private boolean isFinished;
+    private String answer;
+    private boolean isFinished = false;
     private boolean player1ShouldGuess;
     private boolean player2ShouldGuess;
     private boolean player3ShouldGuess;

@@ -39,12 +39,15 @@ public class Main {
         Optional<QuesAns> randomQuestion = quesAnsRepository.findById(random_id());
         String question = randomQuestion.isPresent() ? randomQuestion.get().getQuestion() : "Unknown";
         Integer question_id = randomQuestion.isPresent() ? randomQuestion.get().getId() : 2;
+        String answer = randomQuestion.isPresent() ? randomQuestion.get().getAnswer() : "Unknown";
+        int answerLength= answer.length();
         Game newGame = new Game();
         newGame.setPlayer1ShouldGuess(true);
         newGame.setPlayer1_id(addRequest.player1_id());
         newGame.setPlayer2_id(addRequest.player2_id());
         newGame.setPlayer3_id(addRequest.player3_id());
         newGame.setQuestion_id(question_id);
+        newGame.setAnswer(answer);
         Game savedGame = gameRepository.save(newGame);
         Optional<Player> player1 = playerRepository.findById(savedGame.getPlayer1_id());
         Optional<Player> player2 = playerRepository.findById(savedGame.getPlayer2_id());
@@ -55,9 +58,36 @@ public class Main {
         String player3Name = player3.isPresent() ? player3.get().getName() : "Unknown";
         String message = "New game is started. Game number - " + gameNumber + "\n"
                  + "Players: " + player1Name + ", " + player2Name + ", " + player3Name + "\n"
-                 + "Question: " + question;
+                 + "Question: " + question + "\n"
+                 + "The lenth of answer: " + answerLength + "\n"
+                 + player1Name + " it is Your turn to guess" + "\n";
         return ResponseEntity.ok().body(message);
     }
+    @PostMapping("{gameId}/{playerId}/guessLetter")
+    public ResponseEntity<String> guessLetter(@PathVariable("gameId") Integer gameId,
+                                              @PathVariable("playerId") Integer playerId,
+                                              @RequestBody guessLetterRequest request) {
+        Optional<Player> player = playerRepository.findById(playerId);
+        Optional<Game> game = gameRepository.findById(gameId);
+        Integer player1Id = game.isPresent() ? game.get().getPlayer1_id() : 404;
+        Integer player2Id = game.isPresent() ? game.get().getPlayer2_id() : 404;
+        Integer player3Id = game.isPresent() ? game.get().getPlayer3_id() : 404;
+        Integer playerAccountId = player.isPresent() ? player.get().getId() : 403;
+        boolean isFinished = game.isPresent() && game.get().isFinished();
+        String message = "";
+        if (game.isEmpty()) {
+            message = "There is no game under this Id";
+        }
+        else if (isFinished) message = "This game has been finished";
+        else if (playerAccountId==403) message = "Player not found";
+        else if (!playerAccountId.equals(player1Id) || !playerAccountId.equals(player2Id) || !playerAccountId.equals(player3Id)) message = "Player under id #" + playerAccountId + " does not have access to this game";
+        String answer = game.isPresent() ? game.get().getAnswer() : "Unknown";
+        char[] letters = answer.toCharArray();
+        boolean[] isLettersGuessed = new boolean[letters.length];
+    }
+    record guessLetterRequest (
+            char letter
+    ){}
     record addPlayersRequest (
             Integer player1_id,
             Integer player2_id,
