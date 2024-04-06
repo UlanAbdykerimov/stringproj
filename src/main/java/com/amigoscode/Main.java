@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import org.springframework.http.ResponseEntity;
-import java.util.Scanner;
 
 @SpringBootApplication
 @RestController
@@ -34,7 +33,7 @@ public class Main {
     public List<QuesAns> getAllQuestions() {
         return quesAnsRepository.findAll();
     }
-    @PostMapping("/newgame")
+    @PostMapping("/newGame")
     public ResponseEntity<String> addPlayers(@RequestBody addPlayersRequest addRequest) {
         Optional<QuesAns> randomQuestion = quesAnsRepository.findById(random_id());
         String question = randomQuestion.isPresent() ? randomQuestion.get().getQuestion() : "Unknown";
@@ -48,6 +47,12 @@ public class Main {
         newGame.setPlayer3_id(addRequest.player3_id());
         newGame.setQuestion_id(question_id);
         newGame.setAnswer(answer);
+        char[] gl = new char[answer.length()];
+        for (int i=0; i<answer.length(); i++) {
+            gl[i] = '*';
+        }
+        String gls = new String(gl);
+        newGame.setGuessedLetters(gls);
         Game savedGame = gameRepository.save(newGame);
         Optional<Player> player1 = playerRepository.findById(savedGame.getPlayer1_id());
         Optional<Player> player2 = playerRepository.findById(savedGame.getPlayer2_id());
@@ -59,33 +64,116 @@ public class Main {
         String message = "New game is started. Game number - " + gameNumber + "\n"
                  + "Players: " + player1Name + ", " + player2Name + ", " + player3Name + "\n"
                  + "Question: " + question + "\n"
-                 + "The lenth of answer: " + answerLength + "\n"
+                 + "The length of answer: " + answerLength + "\n"
                  + player1Name + " it is Your turn to guess" + "\n";
         return ResponseEntity.ok().body(message);
     }
     @PostMapping("{gameId}/{playerId}/guessLetter")
     public ResponseEntity<String> guessLetter(@PathVariable("gameId") Integer gameId,
                                               @PathVariable("playerId") Integer playerId,
-                                              @RequestBody guessLetterRequest request) {
+                                              @RequestBody GuessLetterRequest request) {
         Optional<Player> player = playerRepository.findById(playerId);
         Optional<Game> game = gameRepository.findById(gameId);
-        Integer player1Id = game.isPresent() ? game.get().getPlayer1_id() : 404;
-        Integer player2Id = game.isPresent() ? game.get().getPlayer2_id() : 404;
-        Integer player3Id = game.isPresent() ? game.get().getPlayer3_id() : 404;
-        Integer playerAccountId = player.isPresent() ? player.get().getId() : 403;
+        Player optionalPlayer = player.get();
+        Game optionalGame = game.get();
+        Optional<Player> player2 = playerRepository.findById(optionalGame.getPlayer2_id());
+        Optional<Player> player3 = playerRepository.findById(optionalGame.getPlayer3_id());
+        Optional<QuesAns> question= quesAnsRepository.findById(optionalGame.getQuestion_id());
+        QuesAns optionalQuestion = question.get();
+        int player1Id = game.isPresent() ? game.get().getPlayer1_id() : 404;
+        int player2Id = game.isPresent() ? game.get().getPlayer2_id() : 404;
+        int player3Id = game.isPresent() ? game.get().getPlayer3_id() : 404;
+        int playerAccountId = player.isPresent() ? player.get().getId() : 403;
+        char enteredLetter = request.letter();
         boolean isFinished = game.isPresent() && game.get().isFinished();
         String message = "";
+        String answer = game.isPresent() ? game.get().getAnswer() : "Unknown";
+        char[] letters = answer.toCharArray();
+        String guessedLetters = optionalGame.getGuessedLetters();
+        char[] isLettersGuessed = guessedLetters.toCharArray();
+        Integer guessedLetCount = 0;
+        int playersTurn = 0;
+        int random = randomPoints();
+        if (playerAccountId == player1Id) playersTurn=1;
+        if (playerAccountId == player2Id) playersTurn=2;
+        if (playerAccountId == player3Id) playersTurn=3;
         if (game.isEmpty()) {
             message = "There is no game under this Id";
         }
         else if (isFinished) message = "This game has been finished";
-        else if (playerAccountId==403) message = "Player not found";
-        else if (!playerAccountId.equals(player1Id) || !playerAccountId.equals(player2Id) || !playerAccountId.equals(player3Id)) message = "Player under id #" + playerAccountId + " does not have access to this game";
-        String answer = game.isPresent() ? game.get().getAnswer() : "Unknown";
-        char[] letters = answer.toCharArray();
-        boolean[] isLettersGuessed = new boolean[letters.length];
+        else if (playerAccountId==403) message = "Player not found"  + "\n"
+                + "Question: " + optionalQuestion.getQuestion() + "\n"
+                + "Answer: " + guessedLetters;
+        else if (playerAccountId != player1Id || playerAccountId != player2Id || playerAccountId != player3Id) message = "User under id #" + playerAccountId + " is not in the list of players"  + "\n"
+                + "Question: " + optionalQuestion.getQuestion() + "\n"
+                + "Answer: " + guessedLetters;
+        else if (playersTurn==1) {
+            if (!optionalGame.isPlayer1ShouldGuess()) message = "Now it's the other player's turn"  + "\n"
+                    + "Question: " + optionalQuestion.getQuestion() + "\n"
+                    + "Answer: " + guessedLetters;;
+        }
+        else if (playersTurn==2) {
+            if (!optionalGame.isPlayer2ShouldGuess()) message = "Now it's the other player's turn"  + "\n"
+                    + "Question: " + optionalQuestion.getQuestion() + "\n"
+                    + "Answer: " + guessedLetters;;
+        }
+        else if (playersTurn==3) {
+            if (!optionalGame.isPlayer3ShouldGuess()) message = "Now it's the other player's turn"  + "\n"
+                    + "Question: " + optionalQuestion.getQuestion() + "\n"
+                    + "Answer: " + guessedLetters;;
+        }
+        else {
+            for (int i=0; i<letters.length; i++) {
+                if (enteredLetter==letters[i]) {
+                    isLettersGuessed[i] = letters[i];
+                    letters[i] = '*';
+                    guessedLetCount++;
+                    optionalPlayer.setPoints(optionalPlayer.getPoints()+random);
+                    if (playersTurn==1) {
+                        optionalGame.setPlayer1_points(optionalGame.getPlayer1_points()+random);
+                    }
+                    else if (playersTurn==2) {
+                        optionalGame.setPlayer2_points(optionalGame.getPlayer2_points()+random);
+                    }
+                    else if (playersTurn==3) {
+                        optionalGame.setPlayer3_points(optionalGame.getPlayer3_points()+random);
+                    }
+                }
+                if (guessedLetCount == 0) {
+                    if (playersTurn==1) {
+                        optionalGame.setPlayer1ShouldGuess(false);
+                        optionalGame.setPlayer2ShouldGuess(true);
+                        optionalGame.setPlayer3ShouldGuess(false);
+                        message = "You have answered wrongly. The turn passes to " + player2.get().getName();
+                    }
+                    else if (playersTurn==2) {
+                        optionalGame.setPlayer1ShouldGuess(false);
+                        optionalGame.setPlayer2ShouldGuess(false);
+                        optionalGame.setPlayer3ShouldGuess(true);
+                        message = "You have answered wrongly. The turn passes to " + player3.get().getName();
+                    }
+                    else if (playersTurn==3) {
+                        optionalGame.setPlayer1ShouldGuess(true);
+                        optionalGame.setPlayer2ShouldGuess(false);
+                        optionalGame.setPlayer3ShouldGuess(false);
+                        message = "You have answered wrongly. The turn passes to " + optionalPlayer.getName();
+                    }
+                }
+                if (guessedLetCount > 0) {
+                    message = "You have answered correctly. You have got: " + random*guessedLetCount + "!!!";
+                }
+            }
+            String updatedAnswer = new String(letters);
+            String updatedGuessedLetters = new String(isLettersGuessed);
+            optionalGame.setAnswer(updatedAnswer);
+            optionalGame.setGuessedLetters(updatedGuessedLetters);
+        }
+        guessedLetCount=0;
+        playerRepository.save(optionalPlayer);
+        gameRepository.save(optionalGame);
+        return ResponseEntity.ok().body(message);
     }
-    record guessLetterRequest (
+    record GuessLetterRequest (
             char letter
     ){}
     record addPlayersRequest (
@@ -137,6 +225,11 @@ public class Main {
     public Integer random_id(){
         Random random = new Random();
         int ran = random.nextInt(6)+1;
+        return ran;
+    }
+    public int randomPoints(){
+        Random random = new Random();
+        int ran = (random.nextInt(91)+10) * 10;
         return ran;
     }
 }

@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
+
 @Entity
 @Getter
 @Setter
@@ -27,6 +29,7 @@ public class Game {
     private Integer player3_points;
     private Integer question_id;
     private String answer;
+    private String guessedLetters;
     private boolean isFinished = false;
     private boolean player1ShouldGuess;
     private boolean player2ShouldGuess;
