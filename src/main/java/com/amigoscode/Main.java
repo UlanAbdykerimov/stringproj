@@ -8,13 +8,14 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Random;
 import org.springframework.http.ResponseEntity;
 
 @SpringBootApplication
 @RestController
-@RequestMapping("api/v1/customers")
+@RequestMapping("api/v1/players")
 public class Main {
 
     private final PlayerRepository playerRepository;
@@ -68,43 +69,49 @@ public class Main {
                  + player1Name + " it is Your turn to guess" + "\n";
         return ResponseEntity.ok().body(message);
     }
-    @PostMapping("{gameId}/{playerId}/guessLetter")
+    @PostMapping("/{gameId}/{playerId}/guessLetter")
     public ResponseEntity<String> guessLetter(@PathVariable("gameId") Integer gameId,
                                               @PathVariable("playerId") Integer playerId,
                                               @RequestBody GuessLetterRequest request) {
-        Optional<Player> player = playerRepository.findById(playerId);
         Optional<Game> game = gameRepository.findById(gameId);
-        Player optionalPlayer = player.get();
-        Game optionalGame = game.get();
+        Player optionalPlayer = playerRepository.findById(playerId)
+                .orElseThrow(() -> new NoSuchElementException("Player not found"));
+        Game optionalGame = gameRepository.findById(gameId)
+                .orElseThrow(() -> new NoSuchElementException("Game not found"));
         Optional<Player> player2 = playerRepository.findById(optionalGame.getPlayer2_id());
         Optional<Player> player3 = playerRepository.findById(optionalGame.getPlayer3_id());
-        Optional<QuesAns> question= quesAnsRepository.findById(optionalGame.getQuestion_id());
-        QuesAns optionalQuestion = question.get();
-        int player1Id = game.isPresent() ? game.get().getPlayer1_id() : 404;
-        int player2Id = game.isPresent() ? game.get().getPlayer2_id() : 404;
-        int player3Id = game.isPresent() ? game.get().getPlayer3_id() : 404;
-        int playerAccountId = player.isPresent() ? player.get().getId() : 403;
+        QuesAns optionalQuestion = quesAnsRepository.findById(optionalGame.getQuestion_id())
+                .orElseThrow(() -> new NoSuchElementException("Question not found"));
+        int player1Id = optionalGame.getPlayer1_id();
+        int player2Id = optionalGame.getPlayer2_id();
+        int player3Id = optionalGame.getPlayer3_id();
         char enteredLetter = request.letter();
-        boolean isFinished = game.isPresent() && game.get().isFinished();
+        boolean isFinished = optionalGame.isFinished();
         String message = "";
-        String answer = game.isPresent() ? game.get().getAnswer() : "Unknown";
+        String answer = optionalGame.getAnswer();
         char[] letters = answer.toCharArray();
         String guessedLetters = optionalGame.getGuessedLetters();
         char[] isLettersGuessed = guessedLetters.toCharArray();
-        Integer guessedLetCount = 0;
+        int guessedLetCount = 0;
         int playersTurn = 0;
         int random = randomPoints();
-        if (playerAccountId == player1Id) playersTurn=1;
-        if (playerAccountId == player2Id) playersTurn=2;
-        if (playerAccountId == player3Id) playersTurn=3;
+        if (playerId == player1Id) {
+            playersTurn = 1;
+        } else if (playerId == player2Id) {
+            playersTurn = 2;
+        } else if (playerId == player3Id) {
+            playersTurn = 3;
+        } else {
+            playersTurn = 1;
+        }
         if (game.isEmpty()) {
             message = "There is no game under this Id";
         }
         else if (isFinished) message = "This game has been finished";
-        else if (playerAccountId==403) message = "Player not found"  + "\n"
+        else if (playerId==403) message = "Player not found"  + "\n"
                 + "Question: " + optionalQuestion.getQuestion() + "\n"
                 + "Answer: " + guessedLetters;
-        else if (playerAccountId != player1Id || playerAccountId != player2Id || playerAccountId != player3Id) message = "User under id #" + playerAccountId + " is not in the list of players"  + "\n"
+        else if (playerId != player1Id && playerId != player2Id && playerId != player3Id) message = "User under id #" + playerId + " is not in the list of players"  + "\n"
                 + "Question: " + optionalQuestion.getQuestion() + "\n"
                 + "Answer: " + guessedLetters;
         else if (playersTurn==1) {
@@ -168,7 +175,6 @@ public class Main {
             optionalGame.setAnswer(updatedAnswer);
             optionalGame.setGuessedLetters(updatedGuessedLetters);
         }
-        guessedLetCount=0;
         playerRepository.save(optionalPlayer);
         gameRepository.save(optionalGame);
         return ResponseEntity.ok().body(message);
@@ -224,12 +230,10 @@ public class Main {
 
     public Integer random_id(){
         Random random = new Random();
-        int ran = random.nextInt(6)+1;
-        return ran;
+        return random.nextInt(6)+1;
     }
     public int randomPoints(){
         Random random = new Random();
-        int ran = (random.nextInt(91)+10) * 10;
-        return ran;
+        return (random.nextInt(91)+10) * 10;
     }
 }
