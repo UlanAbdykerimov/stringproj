@@ -7,10 +7,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.Random;
+
+import java.util.*;
+
 import org.springframework.http.ResponseEntity;
 
 @SpringBootApplication
@@ -48,6 +47,9 @@ public class Main {
         newGame.setPlayer3_id(addRequest.player3_id());
         newGame.setQuestion_id(question_id);
         newGame.setAnswer(answer);
+        newGame.setPlayer1_points(0);
+        newGame.setPlayer2_points(0);
+        newGame.setPlayer3_points(0);
         char[] gl = new char[answer.length()];
         for (int i=0; i<answer.length(); i++) {
             gl[i] = '*';
@@ -78,6 +80,7 @@ public class Main {
                 .orElseThrow(() -> new NoSuchElementException("Player not found"));
         Game optionalGame = gameRepository.findById(gameId)
                 .orElseThrow(() -> new NoSuchElementException("Game not found"));
+        Optional<Player> player1 = playerRepository.findById(optionalGame.getPlayer1_id());
         Optional<Player> player2 = playerRepository.findById(optionalGame.getPlayer2_id());
         Optional<Player> player3 = playerRepository.findById(optionalGame.getPlayer3_id());
         QuesAns optionalQuestion = quesAnsRepository.findById(optionalGame.getQuestion_id())
@@ -114,66 +117,172 @@ public class Main {
         else if (playerId != player1Id && playerId != player2Id && playerId != player3Id) message = "User under id #" + playerId + " is not in the list of players"  + "\n"
                 + "Question: " + optionalQuestion.getQuestion() + "\n"
                 + "Answer: " + guessedLetters;
-        else if (playersTurn==1) {
-            if (!optionalGame.isPlayer1ShouldGuess()) message = "Now it's the other player's turn"  + "\n"
+        else if (playersTurn==1 && !optionalGame.isPlayer1ShouldGuess()) {
+            message = "Now it's other player's turn"  + "\n"
                     + "Question: " + optionalQuestion.getQuestion() + "\n"
                     + "Answer: " + guessedLetters;;
         }
-        else if (playersTurn==2) {
-            if (!optionalGame.isPlayer2ShouldGuess()) message = "Now it's the other player's turn"  + "\n"
+        else if (playersTurn==2 && !optionalGame.isPlayer2ShouldGuess()) {
+            message = "Now it's the other player's turn"  + "\n"
                     + "Question: " + optionalQuestion.getQuestion() + "\n"
                     + "Answer: " + guessedLetters;;
         }
-        else if (playersTurn==3) {
-            if (!optionalGame.isPlayer3ShouldGuess()) message = "Now it's the other player's turn"  + "\n"
+        else if (playersTurn==3 && !optionalGame.isPlayer3ShouldGuess()) {
+            message = "Now it's the other player's turn"  + "\n"
                     + "Question: " + optionalQuestion.getQuestion() + "\n"
                     + "Answer: " + guessedLetters;;
         }
         else {
             for (int i=0; i<letters.length; i++) {
-                if (enteredLetter==letters[i]) {
+                if (enteredLetter == letters[i]) {
                     isLettersGuessed[i] = letters[i];
                     letters[i] = '*';
                     guessedLetCount++;
-                    optionalPlayer.setPoints(optionalPlayer.getPoints()+random);
-                    if (playersTurn==1) {
-                        optionalGame.setPlayer1_points(optionalGame.getPlayer1_points()+random);
-                    }
-                    else if (playersTurn==2) {
-                        optionalGame.setPlayer2_points(optionalGame.getPlayer2_points()+random);
-                    }
-                    else if (playersTurn==3) {
-                        optionalGame.setPlayer3_points(optionalGame.getPlayer3_points()+random);
+                    optionalPlayer.setPoints(optionalPlayer.getPoints() + random * guessedLetCount);
+                    if (playersTurn == 1) {
+                        optionalGame.setPlayer1_points(optionalGame.getPlayer1_points() + random * guessedLetCount);
+                    } else if (playersTurn == 2) {
+                        optionalGame.setPlayer2_points(optionalGame.getPlayer2_points() + random * guessedLetCount);
+                    } else if (playersTurn == 3) {
+                        optionalGame.setPlayer3_points(optionalGame.getPlayer3_points() + random * guessedLetCount);
                     }
                 }
-                if (guessedLetCount == 0) {
-                    if (playersTurn==1) {
-                        optionalGame.setPlayer1ShouldGuess(false);
-                        optionalGame.setPlayer2ShouldGuess(true);
-                        optionalGame.setPlayer3ShouldGuess(false);
-                        message = "You have answered wrongly. The turn passes to " + player2.get().getName();
-                    }
-                    else if (playersTurn==2) {
-                        optionalGame.setPlayer1ShouldGuess(false);
-                        optionalGame.setPlayer2ShouldGuess(false);
-                        optionalGame.setPlayer3ShouldGuess(true);
-                        message = "You have answered wrongly. The turn passes to " + player3.get().getName();
-                    }
-                    else if (playersTurn==3) {
-                        optionalGame.setPlayer1ShouldGuess(true);
-                        optionalGame.setPlayer2ShouldGuess(false);
-                        optionalGame.setPlayer3ShouldGuess(false);
-                        message = "You have answered wrongly. The turn passes to " + optionalPlayer.getName();
-                    }
+            }
+            if (guessedLetCount == 0) {
+                if (playersTurn==1) {
+                    optionalGame.setPlayer1ShouldGuess(false);
+                    optionalGame.setPlayer2ShouldGuess(true);
+                    optionalGame.setPlayer3ShouldGuess(false);
+                    message = "You have answered wrongly. The turn passes to " + player2.get().getName()
+                            + "Question: " + optionalQuestion.getQuestion() + "\n"
+                            + "Answer: " + guessedLetters;
                 }
-                if (guessedLetCount > 0) {
-                    message = "You have answered correctly. You have got: " + random*guessedLetCount + "!!!";
+                else if (playersTurn==2) {
+                    optionalGame.setPlayer1ShouldGuess(false);
+                    optionalGame.setPlayer2ShouldGuess(false);
+                    optionalGame.setPlayer3ShouldGuess(true);
+                    message = "You have answered wrongly. The turn passes to " + player3.get().getName()
+                            + "Question: " + optionalQuestion.getQuestion() + "\n"
+                            + "Answer: " + guessedLetters;
                 }
+                else if (playersTurn==3) {
+                    optionalGame.setPlayer1ShouldGuess(true);
+                    optionalGame.setPlayer2ShouldGuess(false);
+                    optionalGame.setPlayer3ShouldGuess(false);
+                    message = "You have answered wrongly. The turn passes to " + player1.get().getName()
+                            + "Question: " + optionalQuestion.getQuestion() + "\n"
+                            + "Answer: " + guessedLetters;
+                }
+            }
+            if (guessedLetCount > 0) {
+                message = "You have answered correctly. You have got: " + random*guessedLetCount + "!!!";
+            }
             }
             String updatedAnswer = new String(letters);
             String updatedGuessedLetters = new String(isLettersGuessed);
             optionalGame.setAnswer(updatedAnswer);
             optionalGame.setGuessedLetters(updatedGuessedLetters);
+        playerRepository.save(optionalPlayer);
+        gameRepository.save(optionalGame);
+        return ResponseEntity.ok().body(message);
+    }
+    @PostMapping("/{gameId}/{playerId}/guessWord")
+    public ResponseEntity<String> guessLetter(@PathVariable("gameId") Integer gameId,
+                                              @PathVariable("playerId") Integer playerId,
+                                              @RequestBody GuessWordRequest request) {
+        String enteredWord = request.word();
+        Optional<Game> game = gameRepository.findById(gameId);
+        Player optionalPlayer = playerRepository.findById(playerId)
+                .orElseThrow(() -> new NoSuchElementException("Player not found"));
+        Game optionalGame = gameRepository.findById(gameId)
+                .orElseThrow(() -> new NoSuchElementException("Game not found"));
+        Optional<Player> player1 = playerRepository.findById(optionalGame.getPlayer1_id());
+        Optional<Player> player2 = playerRepository.findById(optionalGame.getPlayer2_id());
+        Optional<Player> player3 = playerRepository.findById(optionalGame.getPlayer3_id());
+        int player1Id = optionalGame.getPlayer1_id();
+        int player2Id = optionalGame.getPlayer2_id();
+        int player3Id = optionalGame.getPlayer3_id();
+        boolean isFinished = optionalGame.isFinished();
+        String message = "";
+        int playersTurn = 0;
+        String guessedLetters = optionalGame.getGuessedLetters();
+        Integer answerId = optionalGame.getQuestion_id();
+        Optional<QuesAns> quesAns = quesAnsRepository.findById(answerId);
+        QuesAns optionalQuestion = quesAnsRepository.findById(answerId)
+                .orElseThrow(() -> new NoSuchElementException("Question not found"));
+        String answer = optionalQuestion.getAnswer();
+        if (playerId == player1Id) {
+            playersTurn = 1;
+        } else if (playerId == player2Id) {
+            playersTurn = 2;
+        } else if (playerId == player3Id) {
+            playersTurn = 3;
+        } else {
+            playersTurn = 1;
+        }
+        if (game.isEmpty()) {
+            message = "There is no game under this Id";
+        }
+        else if (isFinished) message = "This game has been finished";
+        else if (playerId==403) message = "Player not found"  + "\n"
+                + "Question: " + optionalQuestion.getQuestion() + "\n"
+                + "Answer: " + guessedLetters;
+        else if (playerId != player1Id && playerId != player2Id && playerId != player3Id) message = "User under id #" + playerId + " is not in the list of players"  + "\n"
+                + "Question: " + optionalQuestion.getQuestion() + "\n"
+                + "Answer: " + guessedLetters;
+        else if (playersTurn==1 && !optionalGame.isPlayer1ShouldGuess()) {
+            message = "Now it's the other player's turn"  + "\n"
+                    + "Question: " + optionalQuestion.getQuestion() + "\n"
+                    + "Answer: " + guessedLetters;;
+        }
+        else if (playersTurn==2 && !optionalGame.isPlayer2ShouldGuess()) {
+            message = "Now it's the other player's turn"  + "\n"
+                    + "Question: " + optionalQuestion.getQuestion() + "\n"
+                    + "Answer: " + guessedLetters;;
+        }
+        else if (playersTurn==3 && !optionalGame.isPlayer3ShouldGuess()) {
+            message = "Now it's the other player's turn"  + "\n"
+                    + "Question: " + optionalQuestion.getQuestion() + "\n"
+                    + "Answer: " + guessedLetters;;
+        }
+        else {
+            if (!enteredWord.equals(answer)) {
+                if (playersTurn == 1) {
+                    optionalGame.setPlayer1ShouldGuess(false);
+                    optionalGame.setPlayer2ShouldGuess(true);
+                    optionalGame.setPlayer3ShouldGuess(false);
+                    message = "You have answered wrongly. The turn passes to " + player2.get().getName()
+                            + "Question: " + optionalQuestion.getQuestion() + "\n"
+                            + "Answer: " + guessedLetters;
+                } else if (playersTurn == 2) {
+                    optionalGame.setPlayer1ShouldGuess(false);
+                    optionalGame.setPlayer2ShouldGuess(false);
+                    optionalGame.setPlayer3ShouldGuess(true);
+                    message = "You have answered wrongly. The turn passes to " + player3.get().getName()
+                            + "Question: " + optionalQuestion.getQuestion() + "\n"
+                            + "Answer: " + guessedLetters;
+                } else if (playersTurn == 3) {
+                    optionalGame.setPlayer1ShouldGuess(true);
+                    optionalGame.setPlayer2ShouldGuess(false);
+                    optionalGame.setPlayer3ShouldGuess(false);
+                    message = "You have answered wrongly. The turn passes to " + player1.get().getName()
+                            + "Question: " + optionalQuestion.getQuestion() + "\n"
+                            + "Answer: " + guessedLetters;
+                }
+            }
+            else {
+                message = "Congratulation!!! Player " + optionalPlayer.getName() + " guessed the answer!!! " +
+                        optionalPlayer.getName() + " gets 2000 points!!!";
+                optionalGame.setFinished(true);
+                optionalPlayer.setPoints(optionalPlayer.getPoints() + 2000);
+                if (playersTurn == 1) {
+                    optionalGame.setPlayer1_points(optionalGame.getPlayer1_points() + 2000);
+                } else if (playersTurn == 2) {
+                    optionalGame.setPlayer2_points(optionalGame.getPlayer2_points() + 2000);
+                } else if (playersTurn == 3) {
+                    optionalGame.setPlayer3_points(optionalGame.getPlayer3_points() + 2000);
+                }
+            }
         }
         playerRepository.save(optionalPlayer);
         gameRepository.save(optionalGame);
@@ -181,6 +290,9 @@ public class Main {
     }
     record GuessLetterRequest (
             char letter
+    ){}
+    record GuessWordRequest (
+            String word
     ){}
     record addPlayersRequest (
             Integer player1_id,
@@ -209,6 +321,7 @@ public class Main {
         player.setName(request.name());
         player.setEmail(request.email());
         player.setAge(request.age());
+        player.setPoints(0);
         playerRepository.save(player);
     }
 
